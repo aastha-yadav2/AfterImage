@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Story } from '../../types';
-import { RotateCw, HelpCircle, ArrowUpRight } from 'lucide-react';
+
+import { useNavigate } from 'react-router-dom';
 
 interface SpatialArchiveSphereProps {
   stories: Story[];
@@ -11,32 +11,31 @@ interface SpatialArchiveSphereProps {
 
 interface SphereNode {
   story: Story;
-  // Spherical coordinates
-  phi: number; // Polar angle (0 to PI)
-  theta: number; // Azimuthal angle (0 to 2*PI)
+  phi: number;
+  theta: number;
   radius: number;
-  // Projected 3D coordinates
   x: number;
   y: number;
   z: number;
-  // Projected 2D screen coordinates
   screenX: number;
   screenY: number;
   scale: number;
   opacity: number;
   zIndex: number;
+  isFront: boolean;
 }
 
 /**
- * AFTERIMAGE Spatial Spherical Memory Archive
+ * Section 3 & 4 & 5:
+ * IMMERSIVE 3D MEMORY SPHERE WITH INTEGRATED CENTRAL HEADLINE & SCROLL DOLLY
  * 
- * Inspired by high-end spatial photographic galleries:
- * - Distributes heritage story memories across a virtual 3D sphere.
- * - Smooth inertial drag-to-rotate with inertia damping.
- * - Dynamic z-depth projection: memories in front are sharp, illuminated, and interactive;
- *   memories in back fade into the dark obsidian ether with subtle blur and opacity.
- * - Interactive memory inspection card on hover / focus.
- * - Touch & pointer responsive with seamless mobile fallback.
+ * - Fibonacci sphere distribution of 20-30 archival images
+ * - Pure black obsidian aesthetic
+ * - Central Headline: "What the world forgets, we keep." (Playfair Display)
+ * - Headline stays perfectly centered while photographs rotate in 3D around it (some in front, some behind)
+ * - Short scroll distance acts as subtle camera dolly zoom
+ * - Smooth inertial rotation without aggressive spinning
+ * - Hover elevation & amber gap indicators
  */
 export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
   stories,
@@ -47,29 +46,27 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Rotation angles (radians)
-  const [rotation, setRotation] = useState<{ x: number; y: number }>({ x: 0.1, y: 0.2 });
+  const [rotation, setRotation] = useState<{ x: number; y: number }>({ x: 0.05, y: 0.15 });
   const [hoveredStory, setHoveredStory] = useState<Story | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [dollyZoom, setDollyZoom] = useState<number>(1);
 
   // Drag physics tracking
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const rotationStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const velocityRef = useRef<{ x: number; y: number }>({ x: 0.0012, y: 0.0018 });
+  const velocityRef = useRef<{ x: number; y: number }>({ x: 0.0002, y: 0.0008 });
   const animFrameRef = useRef<number | null>(null);
   const lastPointerTimeRef = useRef<number>(0);
 
   // Container dimensions
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [dimensions, setDimensions] = useState({ width: 1200, height: 800 });
 
-  // Measure container
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
-        const { clientWidth, clientHeight } = containerRef.current;
         setDimensions({
-          width: clientWidth || 800,
-          height: clientHeight || 600,
+          width: containerRef.current.clientWidth || window.innerWidth,
+          height: containerRef.current.clientHeight || window.innerHeight,
         });
       }
     };
@@ -79,54 +76,65 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Golden ratio Fibonacci spiral distribution across sphere
+  // Section 5: Subtle scroll-linked camera dolly zoom
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || window.pageYOffset;
+      // Gentle dolly range from 1.0 up to 1.18
+      const maxScroll = 500;
+      const factor = 1 + Math.min(scrollY / maxScroll, 1) * 0.18;
+      setDollyZoom(factor);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Fibonacci sphere positioning with camera dolly calculation
   const sphereNodes: SphereNode[] = useMemo(() => {
     const count = stories.length;
     if (count === 0) return [];
 
     const isMobile = dimensions.width < 640;
-    const sphereRadius = isMobile 
-      ? Math.min(dimensions.width * 0.42, 220)
-      : Math.min(dimensions.width * 0.36, dimensions.height * 0.42, 360);
+    const baseRadius = isMobile 
+      ? Math.min(dimensions.width * 0.44, 230)
+      : Math.min(dimensions.width * 0.38, dimensions.height * 0.46, 420);
 
+    const sphereRadius = baseRadius * dollyZoom;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~2.39996 rad
 
     return stories.map((story, i) => {
-      // Fibonacci sphere distribution for even, aesthetic spacing
-      const yNorm = 1 - (i / (count - 1 || 1)) * 2; // from 1 to -1
+      const yNorm = 1 - (i / (count - 1 || 1)) * 2;
       const radiusAtY = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
       const theta = goldenAngle * i;
 
-      // Base spherical coordinates
       const baseX = Math.cos(theta) * radiusAtY * sphereRadius;
       const baseY = yNorm * sphereRadius;
       const baseZ = Math.sin(theta) * radiusAtY * sphereRadius;
 
-      // Apply 3D rotation matrix around X and Y axes
-      // 1. Rotate around Y axis (horizontal drag)
+      // 3D rotation matrix
       const cosY = Math.cos(rotation.y);
       const sinY = Math.sin(rotation.y);
       const x1 = baseX * cosY - baseZ * sinY;
       const z1 = baseX * sinY + baseZ * cosY;
 
-      // 2. Rotate around X axis (vertical drag)
       const cosX = Math.cos(rotation.x);
       const sinX = Math.sin(rotation.x);
       const y2 = baseY * cosX - z1 * sinX;
       const z2 = baseY * sinX + z1 * cosX;
 
-      // Perspective projection
       const cameraDistance = sphereRadius * 2.3;
       const perspective = cameraDistance / (cameraDistance - z2);
 
       const screenX = dimensions.width / 2 + x1 * perspective;
       const screenY = dimensions.height / 2 + y2 * perspective;
 
-      // Normalized depth (-1 far back, +1 near front)
+      // Depth calculations
       const depthFactor = (z2 + sphereRadius) / (sphereRadius * 2);
-      const scale = Math.max(0.45, Math.min(1.25, 0.55 + depthFactor * 0.65));
-      const opacity = Math.max(0.2, Math.min(1, 0.25 + depthFactor * 0.75));
+      const scale = Math.max(0.45, Math.min(1.28, 0.52 + depthFactor * 0.72));
+      const opacity = Math.max(0.18, Math.min(1, 0.22 + depthFactor * 0.78));
       const zIndex = Math.round((z2 + sphereRadius) * 10);
+      const isFront = z2 > 0;
 
       return {
         story,
@@ -141,25 +149,23 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
         scale,
         opacity,
         zIndex,
+        isFront,
       };
     });
-  }, [stories, rotation, dimensions]);
+  }, [stories, rotation, dimensions, dollyZoom]);
 
-  // Ambient inertia and slow rotation loop
+  // Inertial damping and slow ambient rotation
   useEffect(() => {
     const loop = () => {
-
       if (!isDragging) {
-        // Subtle ambient orbital drift when idle
         setRotation((prev) => ({
-          x: Math.max(-0.6, Math.min(0.6, prev.x + velocityRef.current.x * 0.4)),
-          y: (prev.y + velocityRef.current.y * 0.6) % (Math.PI * 2),
+          x: Math.max(-0.55, Math.min(0.55, prev.x + velocityRef.current.x * 0.35)),
+          y: (prev.y + velocityRef.current.y * 0.55) % (Math.PI * 2),
         }));
 
-        // Damping velocity toward gentle baseline drift
         velocityRef.current = {
-          x: velocityRef.current.x * 0.96 + (0.0003 - velocityRef.current.x) * 0.04,
-          y: velocityRef.current.y * 0.96 + (0.0010 - velocityRef.current.y) * 0.04,
+          x: velocityRef.current.x * 0.965 + (0.0001 - velocityRef.current.x) * 0.035,
+          y: velocityRef.current.y * 0.965 + (0.0006 - velocityRef.current.y) * 0.035,
         };
       }
 
@@ -172,10 +178,9 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
     };
   }, [isDragging]);
 
-  // Pointer / Mouse / Touch interaction handlers
+  // Pointer drag events
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
-    setHasInteracted(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     rotationStartRef.current = { ...rotation };
     lastPointerTimeRef.current = performance.now();
@@ -190,11 +195,10 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
     const now = performance.now();
     const dt = Math.max(now - lastPointerTimeRef.current, 16);
 
-    const sensitivity = 0.005;
-    const nextRotX = Math.max(-0.7, Math.min(0.7, rotationStartRef.current.x - deltaY * sensitivity));
+    const sensitivity = 0.0045;
+    const nextRotX = Math.max(-0.6, Math.min(0.6, rotationStartRef.current.x - deltaY * sensitivity));
     const nextRotY = rotationStartRef.current.y + deltaX * sensitivity;
 
-    // Track fling velocity
     velocityRef.current = {
       x: (-deltaY * sensitivity) / (dt / 16),
       y: (deltaX * sensitivity) / (dt / 16),
@@ -212,13 +216,8 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
     } catch {}
   };
 
-  const handleSelect = (story: Story) => {
-    if (onSelectStory) {
-      onSelectStory(story);
-    } else {
-      navigate(`/story/${story.id}`);
-    }
-  };
+  // Center headline zIndex is midway (e.g. 1000) so nodes with z > 0 appear in front of it!
+  const CENTER_HEADLINE_ZINDEX = 1500;
 
   return (
     <div
@@ -227,147 +226,107 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className={`relative w-full h-[520px] sm:h-[620px] lg:h-[720px] select-none cursor-grab active:cursor-grabbing overflow-hidden ${className}`}
+      className={`relative w-full h-screen select-none cursor-grab active:cursor-grabbing overflow-hidden bg-[#050505] ${className}`}
       style={{ touchAction: 'none' }}
     >
-      {/* Ambient background depth lighting */}
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(223,156,59,0.06)_0%,rgba(9,8,7,0.85)_65%,#050505_100%)]" />
+      {/* Background ambient lighting */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(198,154,88,0.04)_0%,rgba(5,5,5,0.75)_65%,#050505_100%)]" />
 
-      {/* Orbit Rings (Subtle celestial archival compass) */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-        <div className="w-[320px] sm:w-[480px] lg:w-[600px] h-[320px] sm:h-[480px] lg:h-[600px] rounded-full border border-amber-500/25 animate-spin-slower" />
-        <div className="absolute w-[220px] sm:w-[340px] lg:w-[440px] h-[220px] sm:h-[340px] lg:h-[440px] rounded-full border border-charcoal-700/60" />
+      {/* Section 4: Central Headline directly embedded at 3D center */}
+      <div 
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center select-none w-full max-w-xl px-4"
+        style={{ zIndex: CENTER_HEADLINE_ZINDEX }}
+      >
+        <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-light text-parchment-100 leading-[1.08] tracking-tight">
+          What the world <br />
+          <span className="italic font-normal text-amber-200/90">forgets, we keep.</span>
+        </h1>
+        <p className="font-sans text-xs sm:text-sm tracking-[0.25em] uppercase text-parchment-400 mt-4 font-light">
+          Every memory deserves a future.
+        </p>
       </div>
 
-      {/* Sphere Nodes / Suspended Memory Artifacts */}
+      {/* 3D Sphere of Floating Memory Photographs */}
       {sphereNodes.map((node) => {
         const isHovered = hoveredStory?.id === node.story.id;
-        const unansweredCount = node.story.missingQuestions.filter(q => !q.answered).length;
-
-        // Front-facing threshold
-        const isFront = node.z > 0;
+        const unansweredGaps = node.story.missingQuestions.filter(q => !q.answered).length;
 
         return (
           <div
             key={node.story.id}
-            onClick={() => handleSelect(node.story)}
+            onClick={() => {
+              if (onSelectStory) onSelectStory(node.story);
+              else navigate(`/story/${node.story.id}`);
+            }}
             onPointerEnter={() => setHoveredStory(node.story)}
             onPointerLeave={() => setHoveredStory(null)}
-            className="absolute top-0 left-0 transition-transform duration-100 ease-out will-change-transform group"
+            className="absolute top-0 left-0 transition-transform duration-75 ease-out will-change-transform interactive-memory"
             style={{
               transform: `translate3d(${node.screenX}px, ${node.screenY}px, 0) translate(-50%, -50%) scale(${
                 isHovered ? node.scale * 1.15 : node.scale
               })`,
-              zIndex: isHovered ? 9999 : node.zIndex,
+              zIndex: isHovered ? 9999 : (node.isFront ? CENTER_HEADLINE_ZINDEX + node.zIndex : node.zIndex),
               opacity: isHovered ? 1 : node.opacity,
             }}
           >
-            {/* The Archival Memory Card */}
+            {/* The Floating Archival Fragment */}
             <div
-              className={`relative rounded-sm overflow-hidden transition-all duration-300 border ${
+              className={`relative rounded-xs overflow-hidden transition-all duration-300 border ${
                 isHovered
-                  ? 'border-amber-400 shadow-[0_0_30px_rgba(223,156,59,0.45)] ring-1 ring-amber-400/60'
-                  : isFront
-                  ? 'border-charcoal-700/80 shadow-card-dark bg-charcoal-900/90'
-                  : 'border-charcoal-850/60 shadow-none bg-charcoal-950/80 grayscale'
+                  ? 'border-amber-400/90 shadow-[0_0_35px_rgba(198,154,88,0.5)] ring-1 ring-amber-400/50'
+                  : node.isFront
+                  ? 'border-charcoal-800 shadow-[0_15px_35px_rgba(0,0,0,0.85)] bg-[#0c0c0c]'
+                  : 'border-charcoal-900 shadow-none bg-[#050505] brightness-75'
               }`}
               style={{
-                width: dimensions.width < 640 ? '110px' : '140px',
-                height: dimensions.width < 640 ? '150px' : '190px',
+                width: dimensions.width < 640 ? '110px' : '145px',
+                height: dimensions.width < 640 ? '145px' : '190px',
               }}
             >
-              {/* Image */}
               <img
                 src={node.story.heroImage}
                 alt={node.story.title}
                 loading="lazy"
                 className={`w-full h-full object-cover transition-all duration-500 ${
-                  isHovered ? 'scale-105 brightness-105' : isFront ? 'brightness-90' : 'brightness-60'
+                  isHovered ? 'scale-105 brightness-105' : node.isFront ? 'brightness-90' : 'brightness-60 contrast-95'
                 }`}
               />
 
-              {/* Cinematic Vignette */}
-              <div className="absolute inset-0 bg-gradient-to-t from-charcoal-950 via-charcoal-950/30 to-transparent" />
+              {/* Shading gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/25 to-transparent pointer-events-none" />
 
-              {/* Minimal Tag / Marker */}
-              <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-                <span className="text-[9px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded-xs bg-charcoal-950/80 text-amber-300/90 border border-amber-500/20 backdrop-blur-xs">
+              {/* Section 11: Subtle Amber Point / Missing Knowledge Marker */}
+              {unansweredGaps > 0 && (
+                <div 
+                  className="absolute top-2 right-2 flex items-center justify-center pointer-events-none"
+                  title={`${unansweredGaps} unasked questions`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                  </span>
+                </div>
+              )}
+
+              {/* Card Bottom: Category & Title */}
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 space-y-0.5 pointer-events-none">
+                <span className="text-[9px] font-mono tracking-widest uppercase text-amber-400/90 block truncate">
                   {node.story.category}
                 </span>
-
-                {unansweredCount > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 ring-2 ring-charcoal-950 animate-pulse" title={`${unansweredCount} questions awaiting knowledge holder`} />
-                )}
-              </div>
-
-              {/* Card Footer Caption */}
-              <div className="absolute bottom-2 left-2 right-2 space-y-0.5 pointer-events-none">
-                <p className="font-serif-editorial text-[11px] sm:text-xs text-parchment-100 font-light line-clamp-2 leading-tight">
+                <p className="font-serif text-[11px] sm:text-xs text-parchment-100 font-light line-clamp-1 leading-tight">
                   {node.story.title}
                 </p>
-                <p className="text-[9px] font-mono text-parchment-400 truncate">
-                  {node.story.location || node.story.storyteller.name}
-                </p>
               </div>
-
-              {/* Hover Highlight Ring */}
-              {isHovered && (
-                <div className="absolute inset-0 border border-amber-300/50 pointer-events-none animate-pulse" />
-              )}
             </div>
           </div>
         );
       })}
 
-      {/* Focused Hover Card (Appears gracefully when hovering any memory node) */}
-      {hoveredStory && (
-        <div className="absolute bottom-6 left-6 right-6 sm:left-auto sm:right-8 sm:w-96 p-4 rounded-sm bg-charcoal-900/95 border border-amber-500/40 backdrop-blur-md shadow-antique z-[10000] animate-fadeIn pointer-events-auto">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-widest text-amber-400">
-                <span>{hoveredStory.category}</span>
-                <span>•</span>
-                <span className="text-parchment-400">{hoveredStory.location}</span>
-              </div>
-              <h4 className="font-serif-editorial text-base sm:text-lg text-parchment-100 font-medium leading-snug">
-                {hoveredStory.title}
-              </h4>
-            </div>
-            <button
-              onClick={() => handleSelect(hoveredStory)}
-              className="p-1.5 rounded-sm bg-amber-400 text-charcoal-950 hover:bg-amber-300 transition-colors shadow-sm shrink-0"
-              title="Enter Memory"
-            >
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <p className="text-xs text-parchment-300 font-light line-clamp-2 mt-2 leading-relaxed">
-            {hoveredStory.summary}
-          </p>
-
-          <div className="mt-3 pt-2.5 border-t border-charcoal-800 flex items-center justify-between text-[11px] font-mono text-parchment-400">
-            <span>Keeper: <strong className="text-parchment-200">{hoveredStory.storyteller.name}</strong></span>
-            <span className="text-amber-400 flex items-center space-x-1">
-              <HelpCircle className="w-3 h-3 text-rose-400" />
-              <span>{hoveredStory.missingQuestions.filter(q => !q.answered).length} Gaps</span>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Interaction Hint Overlay */}
-      {!hasInteracted && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full border border-amber-500/30 bg-charcoal-900/80 backdrop-blur-sm text-xs font-mono text-parchment-300 flex items-center space-x-2 shadow-sm pointer-events-none animate-bounce">
-          <RotateCw className="w-3.5 h-3.5 text-amber-400" />
-          <span>Drag to rotate the memory sphere</span>
-        </div>
-      )}
-
-      {/* Spatial Controls Corner Pill */}
-      <div className="absolute top-4 right-4 flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-parchment-400 bg-charcoal-900/70 border border-charcoal-800 px-3 py-1.5 rounded-full backdrop-blur-sm pointer-events-none">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-        <span>3D Memory Sphere ({stories.length} Suspended)</span>
+      {/* Floating Drag Prompt */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 pointer-events-none flex items-center space-x-2 text-[10px] font-mono tracking-[0.25em] uppercase text-parchment-500 opacity-70">
+        <span>Drag to rotate</span>
+        <span>&bull;</span>
+        <span>Scroll to dolly</span>
       </div>
     </div>
   );
