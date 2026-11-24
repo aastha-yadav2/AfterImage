@@ -2,6 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { Story, Category } from '../../types';
 import { MapPin } from 'lucide-react';
 
+const FALLBACK_CATEGORY_IMAGES: Record<string, string> = {
+  Crafts: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
+  Traditions: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+  Recipes: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80',
+  'Oral Histories': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+  Places: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+  'Family Knowledge': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+  Languages: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=1200&q=80',
+  Other: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1200&q=80',
+};
+
 interface CuratedArchiveGridProps {
   stories: Story[];
   onSelectStory: (story: Story) => void;
@@ -86,6 +97,14 @@ export const CuratedArchiveGrid: React.FC<CuratedArchiveGridProps> = ({
                   src={story.heroImage}
                   alt={story.title}
                   loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    const fallback = FALLBACK_CATEGORY_IMAGES[story.category] || FALLBACK_CATEGORY_IMAGES.Crafts;
+                    if (target.src !== fallback) {
+                      target.src = fallback;
+                    }
+                  }}
                   className="w-full h-full object-cover object-center brightness-90 group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />

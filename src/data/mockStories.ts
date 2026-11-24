@@ -24,7 +24,7 @@ Natural Japanese indigo (Aizome) does not dissolve in water. It requires a livin
     location: 'Kamiyama, Tokushima Prefecture, Japan',
     period: 'Technique practiced continuously since 1620 (Edo Era)',
     tags: ['Aizome', 'Natural Dyeing', 'Fermentation', 'Textiles', 'Edo Heritage', 'Vanishing Craft'],
-    heroImage: 'https://images.unsplash.com/photo-1606744888344-493238955de0?auto=format&fit=crop&w=1400&q=85',
+    heroImage: 'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&w=1200&q=80',
     galleryImages: [
       'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80',
@@ -306,7 +306,7 @@ Unlike standard violins, the Hardanger fiddle has an arched soundboard, mother-o
     location: 'Telemark, Norway',
     period: 'Tradition spanning 5 generations of village instrument makers',
     tags: ['Luthier', 'Acoustic Woodcraft', 'Hardanger Fiddle', 'Norwegian Heritage', 'Sound Physics'],
-    heroImage: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1400&q=85',
+    heroImage: 'https://images.unsplash.com/photo-1612225330812-01a9c6b355ec?auto=format&fit=crop&w=1200&q=80',
     audioRecording: {
       duration: '39:10',
       sampleRate: '96 kHz / 24-bit',
@@ -414,7 +414,7 @@ After bleaching, the fibers are beaten with heavy oak clubs on river granite for
     location: 'Aleppo, Syria',
     period: 'Bronze age to present',
     tags: ['Laurel Oil', 'Soap Craft', 'Syrian Heritage', 'Ancient Alchemy'],
-    heroImage: 'https://images.unsplash.com/photo-1608248597359-bb4fc2721868?auto=format&fit=crop&w=1400&q=85',
+    heroImage: 'https://images.unsplash.com/photo-1546554137-f86b9593a222?auto=format&fit=crop&w=1200&q=80',
     extractedKnowledge: {
       people: ['Mahmoud Zanabili', 'Zanabili Soap Guild'],
       materials: ['Wild laurel oil (Laurus nobilis)', 'Cold-pressed Syrian olive oil', 'Barilla desert plant ash'],
@@ -502,7 +502,7 @@ After bleaching, the fibers are beaten with heavy oak clubs on river granite for
     location: 'Kyoto, Japan',
     period: 'Muromachi Period (15th century) to present',
     tags: ['Kintsugi', 'Urushi', 'Lacquer', 'Wabi-Sabi', 'Ceramics'],
-    heroImage: 'https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=1400&q=85',
+    heroImage: 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1200&q=80',
     extractedKnowledge: {
       people: ['Toshio Hasegawa', 'Kyoto Lacquer Masters'],
       materials: ['Raw Ki-urushi tree sap', 'Diatomaceous clay powder (Tonoko)', 'Fine Japanese 24k gold powder'],
@@ -634,7 +634,7 @@ After bleaching, the fibers are beaten with heavy oak clubs on river granite for
     location: 'Lake Issyk-Kul, Kyrgyzstan',
     period: 'Ancient Central Asian nomadic traditions (UNESCO)',
     tags: ['Yurt', 'Nomadic Architecture', 'Felt Craft', 'Central Asia', 'Living Tradition'],
-    heroImage: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1400&q=85',
+    heroImage: 'https://images.unsplash.com/photo-1517411032315-54ef2cb783bb?auto=format&fit=crop&w=1200&q=80',
     extractedKnowledge: {
       people: ['Beishenbek Aliyev', 'Kyzyl-Tuu Master Carpenters'],
       materials: ['Mountain red willow (tal)', 'Heavy autumn sheep wool felt', 'Camel leather lashings'],

@@ -224,6 +224,13 @@ export const LivingArchivePage: React.FC = () => {
                       src={story.heroImage}
                       alt={story.title}
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const fallback = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80';
+                        if (!target.src.includes('1579783900882')) {
+                          target.src = fallback;
+                        }
+                      }}
                       className="w-full h-full object-cover brightness-90 group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-charcoal-950 via-transparent to-transparent" />

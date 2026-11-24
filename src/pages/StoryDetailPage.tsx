@@ -118,6 +118,13 @@ export const StoryDetailPage: React.FC = () => {
         <img
           src={story.heroImage}
           alt={story.title}
+          onError={(e) => {
+            const target = e.currentTarget;
+            const fallback = 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80';
+            if (target.src !== fallback) {
+              target.src = fallback;
+            }
+          }}
           className="w-full h-full object-cover object-center brightness-75 scale-100"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal-950 via-charcoal-950/60 to-transparent" />

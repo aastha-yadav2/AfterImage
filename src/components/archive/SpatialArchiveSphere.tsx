@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Story } from '../../types';
@@ -23,6 +24,98 @@ interface SphereNode {
   zIndex: number;
   isFront: boolean;
 }
+
+// Category-specific fallback images (verified 200 OK)
+const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  Crafts: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+  Traditions: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
+  Recipes: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
+  'Oral Histories': 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+  Places: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
+  'Family Knowledge': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
+  Languages: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80',
+  Other: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=600&q=80',
+};
+
+// Optimize image URL for high-DPI sphere card thumbnails to load instantaneously
+function getOptimizedThumbnailUrl(url?: string): string {
+  if (!url) return '';
+  if (url.includes('images.unsplash.com')) {
+    return url.replace(/([?&])w=\d+/, '$1w=500').replace(/([?&])q=\d+/, '$1q=80');
+  }
+  return url;
+}
+
+interface SphereCardImageProps {
+  story: Story;
+  isHovered: boolean;
+  isFront: boolean;
+}
+
+const SphereCardImage: React.FC<SphereCardImageProps> = ({ story, isHovered, isFront }) => {
+  const initialUrl = useMemo(() => getOptimizedThumbnailUrl(story.heroImage), [story.heroImage]);
+  const [currentSrc, setCurrentSrc] = useState<string>(initialUrl);
+  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(getOptimizedThumbnailUrl(story.heroImage));
+    setHasError(false);
+    setIsLoaded(false);
+  }, [story.heroImage]);
+
+  const handleError = () => {
+    const fallback = CATEGORY_FALLBACK_IMAGES[story.category] || CATEGORY_FALLBACK_IMAGES.Crafts;
+    if (currentSrc !== fallback) {
+      setCurrentSrc(fallback);
+    } else {
+      setHasError(true);
+    }
+  };
+
+  return (
+    <div className="relative w-full h-full bg-[#0c0c0c] overflow-hidden">
+      {/* Loading Skeleton / Archival Canvas */}
+      {!isLoaded && !hasError && (
+        <div className="absolute inset-0 bg-[#0e0e0e] flex items-center justify-center animate-pulse">
+          <div className="w-5 h-5 rounded-full border border-amber-500/20 flex items-center justify-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
+          </div>
+        </div>
+      )}
+
+      {/* Pristine Archival Placeholder if network completely fails */}
+      {hasError ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1c1c1c] via-[#0d0d0d] to-[#050505] flex flex-col items-center justify-center p-3 text-center border border-amber-500/10">
+          <div className="w-7 h-7 rounded-full border border-amber-400/30 flex items-center justify-center mb-1 text-amber-300 font-serif text-xs">
+            {story.category.charAt(0)}
+          </div>
+          <span className="text-[8px] font-mono tracking-widest uppercase text-amber-400/90 line-clamp-1">
+            {story.category}
+          </span>
+        </div>
+      ) : (
+        <img
+          src={currentSrc}
+          alt={story.title}
+          loading="eager"
+          decoding="async"
+          onLoad={() => setIsLoaded(true)}
+          onError={handleError}
+          className={`w-full h-full object-cover transition-all duration-500 ${
+            isLoaded ? 'opacity-100' : 'opacity-0'
+          } ${
+            isHovered
+              ? 'scale-105 brightness-110'
+              : isFront
+              ? 'brightness-95 contrast-105'
+              : 'brightness-85 contrast-100'
+          }`}
+        />
+      )}
+    </div>
+  );
+};
 
 /**
  * PROPER CIRCULAR SPHERICAL MEMORY ARCHIVE
@@ -310,14 +403,11 @@ export const SpatialArchiveSphere: React.FC<SpatialArchiveSphereProps> = ({
                 height: dimensions.width < 640 ? '145px' : '190px',
               }}
             >
-              {/* Image with Guaranteed Visibility */}
-              <img
-                src={node.story.heroImage}
-                alt={node.story.title}
-                loading="eager"
-                className={`w-full h-full object-cover transition-all duration-500 ${
-                  isHovered ? 'scale-105 brightness-110' : node.isFront ? 'brightness-95 contrast-105' : 'brightness-85 contrast-100'
-                }`}
+              {/* Image with Guaranteed Visibility, Optimization & Fallbacks */}
+              <SphereCardImage 
+                story={node.story} 
+                isHovered={isHovered} 
+                isFront={node.isFront} 
               />
 
               {/* Shading gradient */}

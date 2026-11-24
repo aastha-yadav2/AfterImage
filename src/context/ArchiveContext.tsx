@@ -68,8 +68,8 @@ interface ArchiveContextType {
   exportArchiveJSON: () => string;
 }
 
-const STORAGE_KEY_STORIES = 'afterimage_living_archive_v2';
-const STORAGE_KEY_SETTINGS = 'afterimage_settings_v2';
+const STORAGE_KEY_STORIES = 'afterimage_living_archive_v4';
+const STORAGE_KEY_SETTINGS = 'afterimage_settings_v4';
 
 const DEFAULT_SETTINGS: SystemSettings = {
   localAiMode: true,
@@ -97,11 +97,30 @@ const ArchiveContext = createContext<ArchiveContextType | undefined>(undefined);
 export const ArchiveProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [stories, setStories] = useState<Story[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY_STORIES);
+      let saved = localStorage.getItem(STORAGE_KEY_STORIES);
+      if (!saved) {
+        // Fallback check legacy keys and clean them
+        saved = localStorage.getItem('afterimage_living_archive_v2') || localStorage.getItem('afterimage_living_archive');
+        try {
+          localStorage.removeItem('afterimage_living_archive_v2');
+          localStorage.removeItem('afterimage_living_archive');
+        } catch {}
+      }
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Guarantee all core heritage stories always use current, verified image assets
+          return parsed.map((s: Story) => {
+            const matchedInitial = INITIAL_STORIES.find((init) => init.id === s.id);
+            if (matchedInitial) {
+              return { 
+                ...s, 
+                heroImage: matchedInitial.heroImage,
+                galleryImages: matchedInitial.galleryImages || s.galleryImages
+              };
+            }
+            return s;
+          });
         }
       }
     } catch (e) {
@@ -124,6 +143,22 @@ export const ArchiveProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalysisMeta, setLastAnalysisMeta] = useState<AnalysisExecutionResult | null>(null);
+
+  // Active sync on mount: ensure any hot-reloaded state or cached stories update hero images immediately
+  useEffect(() => {
+    setStories((prev) => {
+      let changed = false;
+      const synced = prev.map((s) => {
+        const init = INITIAL_STORIES.find((item) => item.id === s.id);
+        if (init && s.heroImage !== init.heroImage) {
+          changed = true;
+          return { ...s, heroImage: init.heroImage, galleryImages: init.galleryImages || s.galleryImages };
+        }
+        return s;
+      });
+      return changed ? synced : prev;
+    });
+  }, []);
 
   // Sync stories to localStorage
   useEffect(() => {
